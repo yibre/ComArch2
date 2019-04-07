@@ -1,0 +1,306 @@
+# coding: utf-8
+
+# In[1]:
+
+# cmd line arg
+import sys
+
+# open input file
+with open(sys.argv[-1], 'rt') as fileobj:
+    file_content = fileobj.read()
+
+address = 0  # if not 0, print the content in the address range of the memory
+d = False  # if True, print registers after each instruction is executed
+
+for i in range(len(sys.argv)):
+    if sys.argv[i] == '-m':
+        address = sys.argv[i + 1]
+    elif sys.argv[i] == '-d':
+        d = True
+    elif sys.argv[i] == '-n':
+        num_instruction = int(sys.argv[i + 1])
+
+if address:
+    address2 = address.split(':')
+    addr1 = int(address2[0], 16)
+    addr2 = int(address2[1], 16)
+
+registers = []
+for i in range(32):
+    registers.append(0)
+
+# In[ ]:
+# 도연: dictionary를 만들기 위한 함수임.
+instructions = file_content.splitlines()
+text_section_size = int(instructions.pop(0), 16)
+data_section_size = int(instructions.pop(0), 16)
+text = instructions[:text_section_size // 4]
+data = instructions[text_section_size // 4:]
+memory = {}
+for i in range(len(text)):
+    memory[0x400000 + 4 * i] = int(text[i], 16)
+for i in range(len(data)):
+    memory[0x10000000 + 4 * i] = int(data[i], 16)
+
+
+# In[ ]:
+
+# call when program terminates if address:
+# call after each instruction has been executed if (d and address):
+def print_mem(addr1):
+    print('Memory Content [' + '{0:#0{1}x}'.format(addr1, 10) + '..' + '{0:#0{1}x}'.format(addr2, 10) + '] :')
+    print('-------------------------------------')
+    while addr1 <= addr2:
+        if addr1 in memory:
+            print('{0:#0{1}x}'.format(addr1, 10) + ':', '{0:#0{1}x}'.format(memory[addr1], 10))
+        else:
+            print('{0:#0{1}x}'.format(addr1, 10) + ':', '{0:#0{1}x}'.format(0, 10))
+        addr1 += 4
+    print()
+
+
+# In[ ]:
+
+pc = [0x400000]
+
+
+# In[ ]:
+
+# call when program terminates
+# call after each instruction has been executed if d:
+def print_registers():
+    print('Current register values :')
+    print('-------------------------------------')
+    print('PC:', '{0:#0{1}x}'.format(pc[0], 10))
+    print('Registers:')
+    for i in range(32):
+        if registers[i] < 0:
+            print('R', i, ': ', '{0:#0{1}x}'.format(registers[i] + 2 ** 32, 10), sep='')
+        else:
+            print('R', i, ': ', '{0:#0{1}x}'.format(registers[i], 10), sep='')
+    print()
+
+
+# In[ ]:
+
+def i_type(bin_inst):
+    rs = int(bin_inst[6:11], 2)
+    rt = int(bin_inst[11:16], 2)
+    # str to signed int
+    if int(bin_inst[16]) == 0:
+        imm = int(bin_inst[16:], 2)
+    else:
+        imm = int(bin_inst[16:], 2) - 2 ** 16
+    return [rs, rt, imm]
+
+
+# In[ ]:
+
+def r_type(bin_inst):
+    rs = int(bin_inst[6:11], 2)
+    rt = int(bin_inst[11:16], 2)
+    rd = int(bin_inst[16:21], 2)
+    shamt = int(bin_inst[21:26], 2)
+    return [rs, rt, rd, shamt]
+
+
+# In[ ]:
+
+def j_type(bin_inst):
+    target = int(bin_inst[6:], 2)
+    bin_pc = '{:0>32}'.format('{0:b}'.format(pc[0]))
+    jump_target = (int(bin_pc[:4], 2) << 28) + target << 2
+    return jump_target
+
+
+# In[ ]:
+
+def addiu(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    registers[rt] = registers[rs] + imm
+
+
+# In[3]:
+
+def addu(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rs] + registers[rt]
+
+
+# In[ ]:
+
+def and_(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rs] & registers[rt]
+
+
+# In[ ]:
+
+def andi(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    registers[rt] = registers[rs] & imm
+
+
+# In[ ]:
+
+def beq(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    if (registers[rs] == registers[rt]):
+        target = pc[0] + (imm << 2)
+        pc[0] = target
+
+
+# In[ ]:
+
+def bne(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    if (registers[rs] != registers[rt]):
+        target = pc[0] + (imm << 2)
+        pc[0] = target
+
+
+# In[ ]:
+
+def j(bin_inst):
+    jump_target = j_type(bin_inst)
+    pc[0] = jump_target
+
+
+# In[ ]:
+
+def jal(bin_inst):
+    jump_target = j_type(bin_inst)
+    registers[31] = pc[0]
+    pc[0] = jump_target
+
+
+# In[ ]:
+
+def jr(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    pc[0] = registers[rs]
+
+
+# In[ ]:
+
+def lui(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    registers[rt] = imm << 16
+
+
+# In[ ]:
+
+def lw(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    registers[rt] = memory[registers[rs] + imm]
+
+
+# In[ ]:
+
+def nor(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = ~(registers[rs] | registers[rt])
+
+
+# In[ ]:
+
+def or_(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rs] | registers[rt]
+
+
+# In[ ]:
+
+def ori(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    registers[rt] = registers[rs] | imm
+
+
+# In[ ]:
+
+def sltiu(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    if registers[rs] < imm:
+        registers[rt] = 1
+    else:
+        registers[rt] = 0
+
+
+# In[ ]:
+
+def sltu(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    if registers[rs] < registers[rt]:
+        registers[rd] = 1
+    else:
+        registers[rd] = 0
+
+
+# In[ ]:
+
+def sll(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rt] << shamt
+
+
+# In[ ]:
+
+def srl(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rt] >> shamt
+
+
+# In[ ]:
+
+def sw(bin_inst):
+    rs, rt, imm = i_type(bin_inst)
+    memory[registers[rs] + imm] = registers[rt]
+
+
+# In[ ]:
+
+def subu(bin_inst):
+    rs, rt, rd, shamt = r_type(bin_inst)
+    registers[rd] = registers[rs] - registers[rt]
+
+
+# In[ ]:
+
+op = {'001001': addiu, '001100': andi, '000100': beq, '000101': bne, '000010': j, '000011': jal, '001111': lui,
+      '100011': lw, '001101': ori, '001011': sltiu, '101011': sw}
+
+# In[ ]:
+
+func = {'100001': addu, '100100': and_, '001000': jr, '100111': nor, '100101': or_, '101011': sltu, '000000': sll,
+        '000010': srl, '100011': subu}
+
+
+# In[ ]:
+
+def execute_inst():
+    if pc[0] not in memory:
+        return
+    bin_inst = '{:0>32}'.format('{0:b}'.format(memory[pc[0]]))
+    pc[0] += 4
+    # if r_type
+    if bin_inst[:6] == '000000':
+        func[bin_inst[-6:]](bin_inst)
+    else:
+        op[bin_inst[:6]](bin_inst)
+    if d:
+        print_registers()
+        if address:
+            print_mem(addr1)
+
+
+# In[ ]:
+
+for i in range(num_instruction):
+    execute_inst()
+
+# In[ ]:
+
+# when program terminates
+print_registers()
+if address:
+    print_mem(addr1)
