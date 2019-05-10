@@ -1,0 +1,36 @@
+# version 1
+
+#  Pipeline Register States
+IF_ID = {'Instr': None, 'NPC' : None, 'rs' : None, 'rt': None, 'rd': None, 'op': None,
+           'funct':None,'imm': None}
+ID_EX = {'NPC' : None, 'rs':None, 'rt':None, 'rd':None, 'op': None, 'shamt' : None,
+           'funct': None, 'imm': None, 'read_data1': None, 'read_data2': None}
+EX_MEM= {'NPC': None, 'alu_out': None, 'BR_target': None, 'rs' : None, 'rt':None,
+           'rd': None, 'op': None, 'shamt':None, 'funct':None, 'imm':None, 'read_data1': None,
+           'read_data2': None}
+MEM_WB= {'NPC' : None, 'alu_out': None, 'mem_out': None, 'rs' : None, 'rt': None, 'rd': None,
+         'op': None, 'shamt':None, 'funct':None, 'imm':None, 'read_data1': None, 'read_data2': None}
+
+# 예측 및 분기용 ATP O ATP X일때 한번씩
+
+#
+
+# stall execute function
+"""
+stall == 1
+ > 1 and current target == none -> 예측 실패시 원 pc로 돌아가기
+ > 3
+
+stall > 0, IFID 
+stall > 1, IDEX
+stall > 2, EX MEM
+stall > 3  MEM WB
+Register 초기화하기
+stall 끝나면 0으로 초기화
+
+** Data Forwarding Function
+R타입의 목적지는 rd고 
+R -> EX/MEM to MEM
+R -> MEM/WB to EX
+MEM/WB to MEM
+"""

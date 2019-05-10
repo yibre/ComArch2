@@ -8,7 +8,6 @@ for i in range(len(file_lines)):
     if not bool(file_lines[i]):
         file_lines.pop(i)
 
- # ------------------------------------------------------------------------- 이하 26번째 줄까지 세진선배 코드 복사
 address = 0  # if not 0, print the content in the address range of the memory
 d = False  # if True, print registers after each instruction is executed
 
@@ -239,7 +238,7 @@ def subu(bin_inst):
 op_dic = {'001001': addiu, '001100': andi, '000100': beq, '000101': bne, '000010': j, '000011': jal, '001111': lui,
       '100011': lw, '001101': ori, '001011': sltiu, '101011': sw} # i type과 j type의 처음 6자리 이진수로 알아냄 dictionary
 func_dic = {'100001': addu, '100100': and_, '001000': jr, '100111': nor, '100101': or_, '101011': sltu, '000000': sll,
-        '000010': srl, '100011': subu} # j type의 뒷자리 func 부분, j 타입은 op가 전부 000000임.
+        '000010': srl, '100011': subu} # r type의 뒷자리 func 부분, r 타입은 op가 전부 000000임.
 
 def execute_inst():
     if pc[0] not in memory:
