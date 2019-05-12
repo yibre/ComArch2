@@ -139,6 +139,30 @@ class InstPipeline:
         self.MEM_WB= {'NPC' : None, 'alu_out': None, 'mem_out': None, 'rs' : None, 'rt': None, 'rd': None,
          'op': None, 'shamt':None, 'funct':None, 'imm':None, 'read_data1': None, 'read_data2': None}
 
+
+    def initiation(self, MemRegister):
+        """
+        :param MemRegister: Memory register(IF_ID, ID_EX, EX_MEM, MEM_WB) 중 하나를 받는다 (type: dictionary)
+        :return: 레지스터의 모든 항목을 초기화한다.
+        """
+        for i in MemRegister:
+            MemRegister[i] = None
+        return MemRegister
+
+    def StallExecute(self, num):
+        """
+        :param num: stall의 횟수. 0 이상 정수. number가 1이면 IF_ID 초기화, 2면 ID_EX도 초기화 등등
+        :return: stall의 횟수에 따라 레지스터를 초기화한다. initiation 함수는 stall 함수 내부에서만 쓰인다.
+        """
+        if num > 0: self.initiation(self.IF_ID)
+        if num > 1: self.initiation(self.ID_EX)
+        if num > 2: self.initiation(self.EX_MEM)
+        if num > 3: self.initiation(self.MEM_WB)
+        return
+
+    def DataForwarding(self):
+        pass
+
     def IF(self, PC):
         i_op_hex = [9, 0xc, 4, 5, 0xf, 0x23, 0xd, 0xb, 0x2b]
         # ["addiu", "andi", "beq", "bne", "lui", "lw", "ori", "sltiu", "sw"]
@@ -179,13 +203,38 @@ class InstPipeline:
             self.IF_ID['op'] = int(dictionary[PC][0:6], 2) # 0xc, 9 등의 숫자가 저장됨
             self.IF_ID['rs'] = int(dictionary[PC][6:11], 2)
             self.IF_ID['rt'] = int(dictionary[PC][11:16], 2)
-            self.IF_ID['imm'] = int(dictionary[PC][16:], 2)
+            self.IF_ID['imm'] = int(dictionary[PC][16:], 2) # imm or offset
 
         if self.IF_ID['InstType'] == 'J':
             self.IF_ID['op'] = int(dictionary[PC][0:6], 2)  # 0xc, 9 등의 숫자가 저장됨
             # Jump Target 지정 어떻게 하지?
 
-    def ID
+
+    def ID(self): # Instruction Decode
+        # lw, sw가 여기서 실행됨
+        # R type instruction
+        self.ID_EX['rd'] = self.IF_ID['rd']
+        self.ID_EX['rt'] = self.IF_ID['rt']
+        self.ID_EX['rs'] = self.IF_ID['rs']
+        self.ID_EX['op'] = self.IF_ID['op']
+        self.ID_EX['shamt'] = self.IF_ID['shamt']
+        self.ID_EX['funct'] = self.IF_ID['funct']
+        self.ID_EX['imm'] = self.IF_ID['imm']
+        self.ID_EX['read_data1'] = self.ID_EX['rt'] # 레지스터 rt값 읽기
+        self.ID_EX['read_data2'] = self.ID_EX['rs'] # 레지스터 rs값 읽기
+
+        if self.IF_ID['InstType'] == 'R':
+            if self.IF_ID['funct'] == 0x21: #addu
+                pass
+            pass
+
+    def Ex(self): # Execute
+
+        pass
+
+    def MA(self):# Memory access
+        pass
+
 
 if __name__ == "__main__":
     pipeline = InstPipeline()
