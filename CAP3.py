@@ -273,7 +273,7 @@ def hazard():
 # set control signals
 def control():
     # r_type
-    if ID_EX.op == '000000':
+    if ID_EX.op == '000000': # DY: R 타입인 경우
         ID_EX.RegDst = 1
         ID_EX.RegWrite = 1
         ID_EX.MemRead = 0

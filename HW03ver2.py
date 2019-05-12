@@ -211,4 +211,62 @@ class PipeLine :
                 self.ID_pc = None
 
     def EX(self):
-        pass
+        if self.Flush == 0:
+            self.EX_pc = None
+            self.Flush = 1
+        else:
+            self.EX_pc = self.ID_pc
+        if self.change_pc[0]:
+            self.ID_EX['MemWrite'] = 0
+            self.ID_EX['RegWrite'] = 0
+            self.Flush = 0
+        if len(end) >= 2:
+            return
+        EX_MEM.MemWrite = ID_EX.MemWrite
+        EX_MEM.RegWrite = ID_EX.RegWrite
+        EX_MEM.MemRead = ID_EX.MemRead
+        EX_MEM.MemtoReg = ID_EX.MemtoReg
+        EX_MEM.Branch = ID_EX.Branch
+        EX_MEM.WriteData = ID_EX.ReadData2
+        EX_MEM.op = ID_EX.op
+        if int(ID_EX.IMM[0]) == 0:
+            imm = int(ID_EX.IMM, 2)
+        else:
+            imm = int(ID_EX.IMM, 2) - 2 ** 16
+        # ForwardA
+        if ForwardA[0] == '00':
+            ALU1 = ID_EX.ReadData1
+        elif ForwardA[0] == '10':
+            ALU1 = EX_MEM.ALU_result
+        else:
+            ALU1 = registers[ID_EX.RegisterRs]
+            # ForwardB
+        if ForwardB[0] == '00':
+            ALU2 = ID_EX.ReadData2
+        elif ForwardB[0] == '10':
+            ALU2 = EX_MEM.ALU_result
+        else:
+            ALU2 = registers[ID_EX.RegisterRt]
+        if ID_EX.ALUSrc:
+            ALU2 = imm
+            # r_type
+        if ID_EX.op == '000000':
+            # jr
+            if ID_EX.IMM[-6:] == '001000':
+                return
+            else:
+                EX_MEM.ALU_result = func[ID_EX.IMM[-6:]](ALU1, ALU2)
+        # j
+        elif ID_EX.op == '000010':
+            return
+        # jal
+        elif ID_EX.op == '000011':
+            EX_MEM.WriteData = ID_EX.NPC
+
+        # i_type
+        else:
+            EX_MEM.ALU_result = op_i[ID_EX.op](ALU1, ALU2)
+        if ID_EX.RegDst == 0:
+            EX_MEM.WriteReg = ID_EX.RegDst0
+        else:
+            EX_MEM.WriteReg = ID_EX.RegDst1
