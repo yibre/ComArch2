@@ -56,11 +56,11 @@ class PipeLine :
         self.EX_pc = None
         self.MEM_pc = None
         self.WB_pc = None
-        self.PC = 0x400000
+        self.PC = [0x400000]
         self.PCSrc = 0
         self.BR_TARGET = 0
         self.JU_TARGET = 0
-        self.change_pc = 0
+        self.change_pc = [0]
         self.Jump = 0
         self.end = []
         self.ForwardA = 0
@@ -139,3 +139,76 @@ class PipeLine :
         else: self.ForwardB = '00'
 
     def IF(self):
+        self.IF_pc =  self.PC[0]
+        if self.PC[0] not in memory:
+            if self.Jump:
+                # jr
+                if self.Jump == 2:
+                    self.PC[0] = registers[31]
+                else: self.PC[0] = self.JU_TARGET
+            elif self.ID_EX['Branch']:
+                if branch_predict == '-antp':
+                    self.IF_pc = None
+            else:
+                self.IF_pc = None
+                self.end.append(1)
+            return
+        self.IF_ID['Instr'] = '{:0>32}'.format('{0:b}'.format(memory[self.PC[0]]))
+        self.IF_ID['rs'] = int(self.IF_ID['Instr'][6:11], 2)
+        self.IF_ID['rt'] = int(self.IF_ID['Instr'][11:16], 2)
+        self.hazard()
+
+        if self.change_pc[0]:
+            self.change_pc.pop(0)
+            self.IF_ID['Instr'] = '00000000000000000000000000000000'
+        elif self.ID_EX['Branch']:
+            if branch_predict == '-atp':
+                self.PC.insert(0, self.BR_TARGET)
+            else:
+                self.PC.append(self.BR_TARGET)
+                self.PC[0] = self.IF_pc + 4
+        elif self.stall == 0:
+            self.PC[0] = self.IF_pc + 4
+        if self.Jump:
+            if self.Jump == 2:
+                self.PC[0] = registers[31]
+            else:
+                self.PC[0] = self.JU_TARGET
+        self.IF_ID['NPC'] = self.PC[0]
+
+    def ID(self):
+        if (self.ID_EX['Branch'] and branch_predict == '-atp') or self.Jump or self.stall or self.change_pc[0]:
+            self.IF_ID['Instr'] = '00000000000000000000000000000000'
+            self.Jump = 0
+            self.stall = 0
+        if len(self.end) >= 1:
+            self.ID_pc = None
+            return
+        self.ID_EX['NPC'] = self.IF_ID['NPC']
+        self.ID_EX['rs'] = self.IF_ID['rs']
+        self.ID_EX['rt'] = self.IF_ID['rt']
+        self.ID_EX['ReadData1'] = registers[self.ID_EX['rs']]
+        self.ID_EX.ReadData2 = registers[self.ID_EX['rt']]
+        self.ID_EX.RegDst0 = self.ID_EX['rt']
+        self.ID_EX.RegDst1 = int(self.IF_ID['Instr'][16:21], 2)
+        self.ID_EX.op = self.IF_ID['Instr'][:6]
+        self.ID_EX.IMM = self.IF_ID['Instr'][16:]
+        if int(self.ID_EX['IMM']) == 0:
+            imm = int(self.ID_EX['IMM'], 2)
+        else:
+            imm = int(self.ID_EX['IMM'], 2) - 2 ** 16
+        self.BR_TARGET = (imm << 2) + self.ID_EX['NPC']
+        target = int(self.IF_ID['Instr'][6:], 2)
+        bin_pc ='{:0>32}'.format('{0:b}'.format(self.PC[0]))
+        self.JU_TARGET = (int(bin_pc[:4], 2) << 28) + target << 2
+        self.control()
+        self.forward()
+        self.ID_pc = self.IF_pc
+        if self.IF_ID['Instr'] == '00000000000000000000000000000000':
+            self.ID_EX['RegWrite'] = 0
+            self.ID_EX['MemWrite'] = 0
+            if self.Flush:
+                self.ID_pc = None
+
+    def EX(self):
+        pass
